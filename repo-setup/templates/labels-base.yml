@@ -23,6 +23,18 @@
   color: "f59e0b"
   description: "Code refactoring, no behavior change"
 
+- name: performance
+  color: "ff6600"
+  description: "Performance optimization"
+
+- name: architecture
+  color: "5319e7"
+  description: "Architectural improvements"
+
+- name: research
+  color: "d4c5f9"
+  description: "Investigation, specification research"
+
 - name: security
   color: "e11d48"
   description: "Security vulnerability"
