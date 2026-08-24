@@ -11,7 +11,7 @@ Battle-tested across 10+ repos.
 | [docs/](docs/) | Documentation — Zensical/ReadTheDocs setup, llms.txt generation |
 | packaging/ | *(planned)* pyproject.toml templates, version management |
 | docker/ | *(planned)* Dockerfile templates, multi-arch builds, mirror variables |
-| repo-setup/ | *(planned)* .gitignore, LICENSE, CLAUDE.md/AGENTS.md templates |
+| [repo-setup/](repo-setup/) | Repo initialization — GitHub labels, .gitignore, LICENSE |
 
 ## Philosophy
 
