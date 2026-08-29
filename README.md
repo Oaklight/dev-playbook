@@ -9,6 +9,7 @@ Battle-tested across 10+ repos.
 |---------|-------------|
 | [ci/](ci/) | CI/CD — pre-commit, GitHub Actions workflows, CalVer releases |
 | [docs/](docs/) | Documentation — Zensical/ReadTheDocs setup, llms.txt generation |
+| [distribution/](distribution/) | Distribution — Nuitka binary builds, minimal Docker images |
 | packaging/ | *(planned)* pyproject.toml templates, version management |
 | docker/ | *(planned)* Dockerfile templates, multi-arch builds, mirror variables |
 | [repo-setup/](repo-setup/) | Repo initialization — GitHub labels, .gitignore, LICENSE |

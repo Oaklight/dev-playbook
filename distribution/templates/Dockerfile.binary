@@ -1,0 +1,33 @@
+# Minimal binary-only image — no Python runtime needed.
+# Uses a pre-built Nuitka binary.
+#
+# Build:
+#   Alpine (musl binary, ~21 MB):
+#     docker build -f docker/Dockerfile.binary --build-arg BASE_IMAGE=alpine \
+#       --build-arg BINARY=build/my-tool-1.0.0-linux-x86_64-musl .
+#
+#   Glibc (native binary, ~25 MB):
+#     docker build -f docker/Dockerfile.binary --build-arg BASE_IMAGE=busybox:glibc \
+#       --build-arg BINARY=build/my-tool-1.0.0-linux-x86_64 .
+#
+# Run:
+#   docker run -p 8080:8080 my-tool
+
+ARG BASE_IMAGE=alpine
+FROM ${BASE_IMAGE}
+
+# ── PROJECT-SPECIFIC: change binary install name ──
+ARG BINARY=my-tool
+COPY --chmod=755 ${BINARY} /usr/local/bin/my-tool
+
+RUN addgroup -g 1000 appgroup && \
+    adduser -D -u 1000 -G appgroup appuser
+
+USER appuser
+
+# ── PROJECT-SPECIFIC: change port and default command ──
+EXPOSE 8080
+
+COPY --chmod=755 docker/entrypoint-binary.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/usr/local/bin/my-tool"]
