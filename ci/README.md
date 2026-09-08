@@ -16,6 +16,7 @@ the same hooks run locally and in CI.
 | [04 — Release workflow (CalVer)](patterns/04-release-workflow.md) | Automated tagging, version bumping, GitHub Release creation |
 | [05 — Dynamic test-dep installation](patterns/05-dynamic-deps.md) | Auto-detect optional extras from `pyproject.toml` |
 | [06 — Version maintenance](patterns/06-version-maintenance.md) | Keeping this playbook's tool versions up to date |
+| [07 — zerodep vendor updates](patterns/07-zerodep-update.md) | Scheduled workflow to detect and update vendored zerodep modules |
 
 ## Templates
 
@@ -29,7 +30,8 @@ templates/
     ├── ci-simple.yml                # Single-repo CI (lint + test)
     ├── lint-test.yml                # Reusable workflow (workflow_call)
     ├── ci-with-reusable.yml         # CI that calls lint-test.yml
-    └── release.yml                  # CalVer release with quality gate
+    ├── release.yml                  # CalVer release with quality gate
+    └── zerodep-update.yml           # Weekly check + auto-PR for vendored zerodep modules
 ```
 
 ## Tool versions
