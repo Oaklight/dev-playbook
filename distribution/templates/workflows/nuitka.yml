@@ -53,7 +53,7 @@ jobs:
       - name: Resolve version
         id: version
         run: |
-          PKG_VER=$(grep -oP '__version__\s*=\s*"\K[^"]+' ${{ env.VERSION_FILE }})
+          PKG_VER=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' ${{ env.VERSION_FILE }})
           SHORT_SHA=$(git rev-parse --short HEAD)
           if git describe --exact-match --tags HEAD >/dev/null 2>&1; then
             VERSION="$PKG_VER"
