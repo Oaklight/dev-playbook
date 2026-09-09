@@ -13,31 +13,16 @@ jobs:
   check-and-update:
     runs-on: ubuntu-latest
     steps:
-      - name: Check for existing PR
-        id: existing
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --head zerodep-update --state open --json number --jq '.[0].number // empty')
-          if [ -n "$pr" ]; then
-            echo "PR #$pr is already open — skipping"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: actions/checkout@v4
-        if: steps.existing.outputs.skip != 'true'
 
       - uses: actions/setup-python@v5
-        if: steps.existing.outputs.skip != 'true'
         with:
           python-version: "3.12"
 
       - name: Install zerodep CLI
-        if: steps.existing.outputs.skip != 'true'
         run: pip install zerodep
 
       - name: Check for outdated modules
-        if: steps.existing.outputs.skip != 'true'
         id: check
         run: |
           output=$(zerodep outdated --json)
@@ -61,7 +46,7 @@ jobs:
         if: steps.check.outputs.has_updates == 'true'
         run: zerodep update --all
 
-      - name: Create Pull Request
+      - name: Create or update Pull Request
         if: steps.check.outputs.has_updates == 'true'
         uses: peter-evans/create-pull-request@v7
         with:

@@ -34,15 +34,17 @@ The workflow template is at
 [`templates/workflows/zerodep-update.yml`](../templates/workflows/zerodep-update.yml).
 
 1. **Schedule**: runs weekly (Monday 03:17 UTC) and on manual `workflow_dispatch`.
-2. **Guard**: checks if a `zerodep-update` PR is already open — if so,
-   skips the entire run to avoid redundant CI and duplicate work.
-3. **Check**: `zerodep outdated --json` returns a JSON object with each
+2. **Check**: `zerodep outdated --json` returns a JSON object with each
    vendored module's local version, latest version, and status. The step
    parses `outdated_count` to decide whether to proceed.
-4. **Update**: `zerodep update --all` fetches and overwrites all outdated
+3. **Update**: `zerodep update --all` fetches and overwrites all outdated
    modules in the configured `vendor-dir`.
-5. **PR**: `peter-evans/create-pull-request` commits the changes and opens
-   a PR with the `dependencies` and `zerodep` labels.
+4. **PR**: `peter-evans/create-pull-request` commits the changes and opens
+   (or updates) a PR with the `dependencies` and `zerodep` labels.
+
+The workflow uses a fixed branch name (`zerodep-update`). If a PR from a
+previous run is still open, `create-pull-request` updates the same PR
+(branch content + PR body) rather than creating a duplicate.
 
 ## Deploying to a project
 
