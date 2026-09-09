@@ -7,7 +7,7 @@ checks for drift and auto-creates PRs.
 
 ## Prerequisites
 
-- `zerodep` CLI ≥ 2026.9.8 (with `--json`, `--exit-code`, `update --all`)
+- `zerodep` CLI ≥ 2026.9.9 (with `--json`, `--exit-code`, `update --all`)
 - `[tool.zerodep]` section in `pyproject.toml` declaring `vendor-dir`
 
 ## Project configuration

@@ -26,7 +26,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install zerodep CLI
-        run: pip install 'zerodep>=2026.9.8'
+        run: pip install 'zerodep>=2026.9.9'
 
       - name: Check for outdated modules
         id: check
