@@ -49,12 +49,21 @@ previous run is still open, `create-pull-request` updates the same PR
 ## Deploying to a project
 
 1. Add `[tool.zerodep] vendor-dir` to `pyproject.toml` (see above).
+   **This is required** — without it, `zerodep outdated` scans CWD and
+   will silently report nothing outdated.
 2. Copy `templates/workflows/zerodep-update.yml` to `.github/workflows/`.
 3. Ensure the repo has `dependencies` and `zerodep` labels (see
    [repo-setup](../../repo-setup/) for the label taxonomy).
 
 No per-workflow customization is needed — the CLI reads the vendor
 directory from `pyproject.toml`.
+
+### CI checks on the auto-PR
+
+PRs created by the default `GITHUB_TOKEN` do **not** trigger
+`on: pull_request` workflows. If you need CI checks on the auto-PR,
+configure `create-pull-request` to use a GitHub App token or PAT
+instead. See the [create-pull-request docs](https://github.com/peter-evans/create-pull-request/blob/main/docs/concepts-guidelines.md#triggering-further-workflow-runs) for details.
 
 ## CLI flags for scripting
 
