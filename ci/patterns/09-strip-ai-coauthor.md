@@ -16,7 +16,7 @@ Two jobs handle same-repo and fork PRs differently:
 1. Checks out the PR branch with full history.
 2. Scans all commits in the PR range for `Co-authored-by` lines matching
    known AI agents.
-3. If found, rewrites the commits with `git filter-branch` to remove those
+3. If found, rewrites the commits with `git rebase --exec` to remove those
    lines, preserving human co-author trailers.
 4. Force-pushes the cleaned branch back — this triggers a new `synchronize`
    event, but since the rewritten commits are clean, the second run is a
