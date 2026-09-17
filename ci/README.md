@@ -17,6 +17,8 @@ the same hooks run locally and in CI.
 | [05 — Dynamic test-dep installation](patterns/05-dynamic-deps.md) | Auto-detect optional extras from `pyproject.toml` |
 | [06 — Version maintenance](patterns/06-version-maintenance.md) | Keeping this playbook's tool versions up to date |
 | [07 — zerodep vendor updates](patterns/07-zerodep-update.md) | Scheduled workflow to detect and update vendored zerodep modules |
+| [08 — Test release workflow](patterns/08-test-release-workflow.md) | Publish packages to Test PyPI before production release |
+| [09 — Strip AI co-author trailers](patterns/09-strip-ai-coauthor.md) | Auto-strip AI agent `Co-authored-by` lines from PR commits |
 
 ## Templates
 
@@ -31,7 +33,8 @@ templates/
     ├── lint-test.yml                # Reusable workflow (workflow_call)
     ├── ci-with-reusable.yml         # CI that calls lint-test.yml
     ├── release.yml                  # CalVer release with quality gate
-    └── zerodep-update.yml           # Weekly check + auto-PR for vendored zerodep modules
+    ├── zerodep-update.yml           # Weekly check + auto-PR for vendored zerodep modules
+    └── strip-ai-coauthor.yml        # Strip AI co-author trailers from PR commits
 ```
 
 ## Tool versions
