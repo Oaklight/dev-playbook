@@ -20,6 +20,7 @@ the same hooks run locally and in CI.
 | [08 — Test release workflow](patterns/08-test-release-workflow.md) | Publish packages to Test PyPI before production release |
 | [09 — Strip AI co-author trailers](patterns/09-strip-ai-coauthor.md) | Auto-strip AI agent `Co-authored-by` lines from PR commits |
 | [10 — Pure-move check](patterns/10-pure-move-check.md) | AST check that a PR only moves code, plus its label-triggered CI job |
+| [11 — ty from a git worktree](patterns/11-ty-worktree-wrapper.md) | Make `ty check` match CI when an editable install points at another checkout |
 
 ## Templates
 
@@ -46,6 +47,15 @@ into (`scripts/dev/`, `tests/`):
 templates/
 ├── scripts/dev/check_move.py        # AST pure-move checker (pattern 10)
 └── tests/test_check_move.py
+```
+
+Scripts and their tests mirror the layout of the repository they are copied
+into (`scripts/dev/`, `tests/`):
+
+```
+templates/
+├── scripts/dev/run_ty.py            # worktree-safe ty wrapper (pattern 11)
+└── tests/test_run_ty.py
 ```
 
 ## Tool versions
