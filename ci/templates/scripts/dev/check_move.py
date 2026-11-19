@@ -62,8 +62,8 @@ from __future__ import annotations
 
 import argparse
 import ast
-import copy
 import builtins
+import copy
 import difflib
 import subprocess
 import symtable
