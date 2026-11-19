@@ -1,0 +1,53 @@
+name: Pure move
+
+# A refactor PR claims "no behaviour change", but a reviewer cannot see a dropped
+# `@classmethod` in a 2000-line move.  This workflow compares every def, method
+# and class-level assignment of the changed files by AST between the PR base and
+# the PR head, and fails on a def that is missing or moved with a difference.
+#
+# It runs for PRs whose title starts with `refactor` (`refactor:` and
+# `refactor(scope):`) and for PRs carrying the `pure-move` label.  Create the
+# label once with `gh label create pure-move`, or delete the label condition.
+# An accepted difference goes in `.github/pure-move-allow.txt`
+# (`qualified.name  reason`, one per line).
+#
+# See ci/patterns/10-pure-move-check.md.
+
+on:
+  pull_request:
+    # `edited` and `labeled` re-run the check when a PR is retitled or labelled.
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  pure-move:
+    if: >-
+      startsWith(github.event.pull_request.title, 'refactor') ||
+      contains(github.event.pull_request.labels.*.name, 'pure-move')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The tool needs the merge base of the PR and its base branch.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check that the refactor is a pure move
+        # `shell: bash` runs `bash -eo pipefail`, so the tool's exit status
+        # survives the `| tee`.  The default shell (`bash -e`) has no pipefail
+        # and would report success after a failed check.
+        shell: bash
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+        run: |
+          args=()
+          if [ -f .github/pure-move-allow.txt ]; then
+            args+=(--allow .github/pure-move-allow.txt)
+          fi
+          python scripts/dev/check_move.py "$BASE_REF" HEAD "${args[@]}" --markdown \
+            | tee -a "$GITHUB_STEP_SUMMARY"
