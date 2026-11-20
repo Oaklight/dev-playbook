@@ -19,7 +19,7 @@ the same hooks run locally and in CI.
 | [07 — zerodep vendor updates](patterns/07-zerodep-update.md) | Scheduled workflow to detect and update vendored zerodep modules |
 | [08 — Test release workflow](patterns/08-test-release-workflow.md) | Publish packages to Test PyPI before production release |
 | [09 — Strip AI co-author trailers](patterns/09-strip-ai-coauthor.md) | Auto-strip AI agent `Co-authored-by` lines from PR commits |
-| [10 — Pure-move check](patterns/10-pure-move-check.md) | AST check that a refactor PR only moves code, plus its CI job |
+| [10 — Pure-move check](patterns/10-pure-move-check.md) | AST check that a PR only moves code, plus its label-triggered CI job |
 
 ## Templates
 
@@ -36,7 +36,7 @@ templates/
     ├── release.yml                  # CalVer release with quality gate
     ├── zerodep-update.yml           # Weekly check + auto-PR for vendored zerodep modules
     ├── strip-ai-coauthor.yml        # Strip AI co-author trailers from PR commits
-    └── pure-move.yml                # Run check_move.py on refactor PRs
+    └── pure-move.yml                # Run check_move.py on PRs labelled pure-move
 ```
 
 Scripts and their tests mirror the layout of the repository they are copied

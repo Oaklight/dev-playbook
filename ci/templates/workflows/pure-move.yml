@@ -5,36 +5,53 @@ name: Pure move
 # and class-level assignment of the changed files by AST between the PR base and
 # the PR head, and fails on a def that is missing or moved with a difference.
 #
-# It runs for PRs whose title starts with `refactor` (`refactor:` and
-# `refactor(scope):`) and for PRs carrying the `pure-move` label.  Create the
-# label once with `gh label create pure-move`, or delete the label condition.
-# An accepted difference goes in `.github/pure-move-allow.txt`
-# (`qualified.name  reason`, one per line).
+# It is opt-in: it runs only for PRs carrying the `pure-move` label.  Create the
+# label once with
+#   gh label create pure-move --color 57606A \
+#     --description "PR only moves code; runs the pure-move CI check"
+# A `refactor` title is not a reliable proxy (in the repositories this was
+# measured on, almost no `refactor` commit was a pure move), so the title does
+# not trigger the job.  A repository whose refactor PRs really are pure moves can
+# add this line to the `if:` condition below:
+#   startsWith(github.event.pull_request.title, 'refactor') ||
+#
+# It is its own workflow because it must also run when a PR is labelled: with the
+# default `pull_request` types a label added after the PR was opened starts no
+# run, and giving the main CI workflow those types would re-run every job on each
+# label change.  `edited` re-runs the check after a retitle; it only matters if you
+# enable the title trigger above, and is harmless otherwise.
+#
+# Accepted differences go in `.github/pure-move-allow.txt`, one
+# `path::qualified.name  reason` per line; the file is read from the BASE branch.
+#
+# A job skipped by its `if:` condition counts as success for branch protection,
+# so this job can be a required check without blocking PRs that do not opt in.
 #
 # See ci/patterns/10-pure-move-check.md.
 
 on:
   pull_request:
-    # `edited` and `labeled` re-run the check when a PR is retitled or labelled.
-    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+    # Match the repository's default branch, or delete the `branches` line to run
+    # for PRs into any branch (`github.base_ref` is used either way).
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
 
 permissions:
   contents: read
 
 jobs:
   pure-move:
-    if: >-
-      startsWith(github.event.pull_request.title, 'refactor') ||
-      contains(github.event.pull_request.labels.*.name, 'pure-move')
+    if: contains(github.event.pull_request.labels.*.name, 'pure-move')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # The tool needs the merge base of the PR and its base branch.
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
+          # The tool needs Python >= 3.10; use your CI version.
           python-version: "3.12"
 
       - name: Check that the refactor is a pure move
@@ -46,8 +63,16 @@ jobs:
           BASE_REF: origin/${{ github.base_ref }}
         run: |
           args=()
-          if [ -f .github/pure-move-allow.txt ]; then
-            args+=(--allow .github/pure-move-allow.txt)
+          # Accepted differences are read from the BASE branch.  A PR that
+          # needs an exemption must land it first, in review; the head cannot
+          # grant itself one.
+          if git cat-file -e "$BASE_REF:.github/pure-move-allow.txt" 2>/dev/null; then
+            git show "$BASE_REF:.github/pure-move-allow.txt" > "$RUNNER_TEMP/pure-move-allow.txt"
+            args+=(--allow "$RUNNER_TEMP/pure-move-allow.txt")
+          fi
+          if [ -f .github/pure-move-allow.txt ] \
+            && ! git diff --quiet "$BASE_REF" HEAD -- .github/pure-move-allow.txt; then
+            echo "::warning file=.github/pure-move-allow.txt::This PR changes the allow-file; the base branch's copy is used, so the change has no effect on this run."
           fi
           python scripts/dev/check_move.py "$BASE_REF" HEAD "${args[@]}" --markdown \
             | tee -a "$GITHUB_STEP_SUMMARY"
