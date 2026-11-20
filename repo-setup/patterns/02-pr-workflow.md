@@ -29,8 +29,8 @@ takes the highest.
 | Security-relevant | Auth, keys, credentials, sanitizing, network exposure | Always reviewed, ideally by someone other than the author's usual reviewer. |
 
 For a pure move, the proof in the template is the move-check summary
-([pattern 10](../../ci/patterns/10-pure-move-check.md)) and a clean type-check
-run. Where those tools are not installed, the author gives the equivalent
+([pattern 10](../../ci/patterns/10-pure-move-check.md)) and a passing type
+check. Where those tools are not installed, the author gives the equivalent
 evidence by hand.
 
 ## Who reviews what
@@ -46,8 +46,17 @@ assigns the reviewer:
 | --- | --- |
 | `src/<pkg>/<core area>/` | <what it is> |
 | `src/<pkg>/{auth,keys}/` | Security-relevant: credentials, auth |
+| `src/<pkg>/_vendor/` | Vendored: re-vendor from upstream, never hand-edit |
 | `.github/`, `scripts/`, `Makefile`, `pyproject.toml` | Build, CI, tooling |
 ```
+
+### Required checks and skipped jobs
+
+A job skipped by its `if:` condition (for example the pure-move job on a PR
+without the `pure-move` label) reports as skipped, and branch protection counts
+a skipped job as success. Listing such a job as a required check therefore does
+not block a PR that does not run it, and it is safe to require; the check
+only gates the PRs that opt in.
 
 ## Series and overlap
 
@@ -56,14 +65,23 @@ Before opening a PR, run the overlap check:
 ```bash
 python scripts/dev/pr_overlap.py            # current branch against the default branch
 python scripts/dev/pr_overlap.py --local    # also other local branches
-python scripts/dev/pr_overlap.py --fail-on-overlap   # exit 1 on overlap
+python scripts/dev/pr_overlap.py --fail-on-overlap   # gate: 1 on overlap, 2 if unverified
 ```
 
-It lists every open PR that touches the same files. It needs the `gh` CLI and
-exits 0 unless you pass `--fail-on-overlap`. When `gh` or git fails, it says
-the overlap is unverified and still exits 0, so it never blocks on a tool
-failure. The base defaults to `origin/HEAD`, then `origin/main`, then
-`origin/master`; `--base` overrides it.
+It lists every open PR that touches the same files and excludes the branch's
+own PR (by head ref name, by head commit, and by `$GITHUB_HEAD_REF`, so
+`--head HEAD` or a SHA works too). It needs the `gh` CLI. The exit status
+depends on the mode:
+
+| Mode | Exit 0 | Exit 1 | Exit 2 |
+|------|--------|--------|--------|
+| Default (hook-safe) | Always, including overlap (printed as a WARNING) and a check that could not run (printed as "unverified") | never | never |
+| `--fail-on-overlap` (gate) | The check ran and found no overlap | The check ran and found overlap | The check could not complete: `gh` or git failed, the JSON was bad, or the PR list hit its 200-PR limit |
+
+A gate never passes on a check that did not finish. The tool warns when the PR
+list reaches the limit, because `gh pr list` has no pagination. The base
+defaults to `origin/HEAD`, then `origin/main`, then `origin/master`; `--base`
+overrides it.
 
 If a PR overlaps, merge a series one PR at a time and rebase the rest after
 each merge.
@@ -84,10 +102,15 @@ If you skipped any hook, name it and the reason in the template.
 ## Adapting
 
 - Replace the lint, test and type-check lines in the template with the
-  repository's real commands.
+  repository's real commands. Write the command, not "lint": a repository with
+  several linters needs the exact one (for example `pre-commit run --all-files`).
+  Do not ask for a diagnostic count unless a tool in the repository prints it.
 - Delete the pure-move and overlap lines if the repository does not carry those
   tools.
 - Keep the AI-disclosure line if the repository forbids AI `Co-authored-by`
   trailers (see [pattern 09](../../ci/patterns/09-strip-ai-coauthor.md)).
+
+If the repository dismisses stale reviews, a new commit clears earlier
+approvals. Re-request review after pushing review fixes.
 
 Source: Oaklight/llm-rosetta#1624.

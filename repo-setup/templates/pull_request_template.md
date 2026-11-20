@@ -13,8 +13,8 @@
 
 ## Verification
 
-- [ ] Lint and tests pass. Result:
-- [ ] Type check clean (new diagnostics: 0):
+- [ ] Lint and tests pass. Commands and result: <!-- the repository's own commands, for example `pre-commit run --all-files` and `python -m pytest tests/ -v` -->
+- [ ] Type check passes, or each new diagnostic is listed and explained:
 - [ ] Pure move only: move-check summary (`python scripts/dev/check_move.py <base> --markdown`):
 - [ ] Overlap check done: `python scripts/dev/pr_overlap.py` shows no open PR on the same files, or the merge order is stated here:
 - [ ] CI is fully green before review is requested
