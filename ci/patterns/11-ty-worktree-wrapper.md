@@ -19,8 +19,9 @@ cd B && ty check
 # error[unresolved-attribute]: Module `foo` has no member `new`
 ```
 
-`ty` was 0.0.54 in this run. The error disappears when B's `src` directory is
-searched first.
+`ty` was 0.0.54 in this run (later versions renamed the rule to
+`missing-attribute`; the diagnostic is the same). The error disappears when B's
+`src` directory is searched first.
 
 ## Fix A: static config (when the layout is fixed)
 
@@ -75,7 +76,7 @@ the CI result (see [01 — Pre-commit setup](01-pre-commit-setup.md)):
 ```yaml
       - id: ty
         name: ty check
-        entry: python scripts/dev/run_ty.py
+        entry: python3 scripts/dev/run_ty.py
         language: system
         pass_filenames: false
         require_serial: true
@@ -84,14 +85,24 @@ the CI result (see [01 — Pre-commit setup](01-pre-commit-setup.md)):
 
 ## When you do not need either
 
-Repositories with a root-level `src/` layout may not show the problem. In
-Oaklight/toolregistry-server and Oaklight/toolregistry-hub, `ty check src/` run
-in a worktree resolved the worktree's own package even though the editable
-install pointed at another checkout (checked with a deliberately mistyped call
-into a new function; both repositories pass), so neither needs a wrapper.
-`ty` appears (inference, not checked in its source) to add the project's
-`src` directory to its first-party search path. The reproduced failing case is
-a nested layout such as `packages/*/src`, where no `src` sits at the repository
-root.
+A repository with a root-level `src/` layout may not show the problem when the
+checked paths are inside `src/`. In Oaklight/toolregistry-server and
+Oaklight/toolregistry-hub, `ty check src/` run in a worktree resolved the
+worktree's own package even though the editable install pointed at another
+checkout (checked with a deliberately mistyped call into a new function).
+`ty` appears (inference, not checked in its source) to add the project's `src`
+directory to its first-party search path.
+
+That result is narrower than "root-level `src/` is safe". toolregistry-hub
+passes because its hook runs `ty check src/` and checks nothing outside `src/`.
+When a test that imports a symbol added in the worktree was checked there, ty
+reported `missing-module-member` against the other checkout's sources (re-run
+by a reviewer on toolregistry-hub with ty 0.0.107). So a repository that
+type-checks its **tests** from a worktree still hits this, whatever its layout.
+The reproduced failing case is a nested layout such as `packages/*/src`, where
+no `src` sits at the repository root.
+
+Use the wrapper or `extra-paths` when the repository type-checks tests, or has
+a nested layout; skip both when only a root-level `src/` is checked.
 
 Source: Oaklight/llm-rosetta#1622.
