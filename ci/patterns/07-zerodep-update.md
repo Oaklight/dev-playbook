@@ -125,7 +125,7 @@ Bootstrap the lock first, on a branch:
 
 ```bash
 zerodep add <module> --no-deps --force   # copy upstream and write the lock
-zerodep status --json | jq -e 'all(.modules[]; .tracked)'
+zerodep status --json | jq -e '(.modules | length) > 0 and all(.modules[]; .tracked)'
 ```
 
 `"lock": true` only means a lock file exists; it can still leave some rows
@@ -150,9 +150,9 @@ running `add`; `-d <project-root>` writes into the root and leaves no lock.
 Only zerodep module names need a lock; foreign files in the vendor directory
 are ignored. Locks are module-granular, not directory-granular: a directory
 can have a lock and still carry untracked modules (later additions, or a
-hand-copied file). Run the `all(.modules[]; .tracked)` check for every
-inspected directory, and add each untracked module by name. Otherwise that
-module warns on every run and never updates.
+hand-copied file). Run the check above for every inspected directory, and add
+each untracked module by name. Otherwise that module warns on every run and
+never updates.
 
 No per-workflow customization is needed — the CLI reads the vendor
 directory from `pyproject.toml`.
