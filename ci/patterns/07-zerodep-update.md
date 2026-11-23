@@ -60,6 +60,11 @@ and the guard script at
    A row with the same version but a different content hash stays in the
    update set and is labelled "content differs at version X (hash changed,
    version unchanged)".
+
+   Repositories that patch a module after every update set
+   `ZERODEP_EXPECTED_LOCAL` to that module list. The script then moves those
+   `locally-modified` rows out of the manual list and accepts them as the
+   expected end state after patch re-application (ztrade uses this).
 3. **Update**: the plan is applied one directory at a time with
    `zerodep update --no-deps <names...>`. Naming the modules and skipping
    dependency expansion means even a CLI that predates `newer-than-upstream`
