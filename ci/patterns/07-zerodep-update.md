@@ -125,24 +125,34 @@ Bootstrap the lock first, on a branch:
 
 ```bash
 zerodep add <module> --no-deps --force   # copy upstream and write the lock
-zerodep status --json                    # must report "lock": true
+zerodep status --json | jq -e 'all(.modules[]; .tracked)'
 ```
+
+`"lock": true` only means a lock file exists; it can still leave some rows
+`tracked: false`. Check that every module is tracked, not just that the file
+exists. A lockless tree whose bytes already match upstream is silent (green,
+no warning) until upstream moves; that is the case this check catches.
 
 `--no-deps` copies only the named module; add its dependencies explicitly, or
 omit the flag to let the CLI resolve them. `--force` also replaces a vendored
-copy that differs from upstream, so review the diff and run the repository's
-tests before merging. If the tree was vendored with `--nested`, pass that flag
-too so the copy keeps its layout.
+copy that differs from upstream, which can be an upgrade, so review the diff
+and run the repository's tests before merging. If the tree was vendored with
+`--nested`, pass that flag too so the copy keeps its layout.
+
+A deliberately patched module stays `unverified` or `locally-modified` even
+with a lock. Repositories that patch after every update list those modules in
+`ZERODEP_EXPECTED_LOCAL` (see above).
 
 `-d` names the vendor directory itself, not the project root. In a multi-tree
 repo, `cd` into the package directory (the one with `pyproject.toml`) before
 running `add`; `-d <project-root>` writes into the root and leaves no lock.
 
 Only zerodep module names need a lock; foreign files in the vendor directory
-are ignored. A partially locked tree (one inspected directory with a lock,
-another without) must either commit a lock for every directory or drop the
-unlocked directory from the `inspect` arguments. Otherwise that directory
-warns on every run and never updates.
+are ignored. Locks are module-granular, not directory-granular: a directory
+can have a lock and still carry untracked modules (later additions, or a
+hand-copied file). Run the `all(.modules[]; .tracked)` check for every
+inspected directory, and add each untracked module by name. Otherwise that
+module warns on every run and never updates.
 
 No per-workflow customization is needed — the CLI reads the vendor
 directory from `pyproject.toml`.
