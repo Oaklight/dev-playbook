@@ -50,13 +50,18 @@ and the guard script at
 [`templates/scripts/zerodep_guard.py`](../templates/scripts/zerodep_guard.py).
 
 1. **Schedule**: runs weekly (Monday 03:17 UTC) and on manual `workflow_dispatch`.
+   A `concurrency` group serializes runs, so a scheduled run and a manual
+   dispatch cannot race on the `zerodep-update` branch.
 2. **Inspect**: `zerodep status --json` runs for each vendored tree. The guard
-   script classifies every row:
+   first requires a `[tool.zerodep] vendor-dir`; a tree without it fails the
+   run instead of reporting "all up to date" for an empty directory. It then
+   classifies every row:
    - `outdated` / `missing` with a comparable, not-newer version → update
    - `newer-than-upstream`, or an `outdated` row whose locked version is
      higher → skipped, with the locked and upstream versions in the summary
    - `version-uncomparable` → skipped
    - `locally-modified`, `conflict`, `unverified`, `upstream-removed` → manual
+   - any row with a non-empty `missing_deps` → manual
    A row with the same version but a different content hash stays in the
    update set and is labelled "content differs at version X (hash changed,
    version unchanged)".
@@ -65,14 +70,20 @@ and the guard script at
    `ZERODEP_EXPECTED_LOCAL` to that module list. The script then moves those
    `locally-modified` rows out of the manual list and accepts them as the
    expected end state after patch re-application (ztrade uses this).
+
+   Every protected and manual row produces a `::warning::` annotation on the
+   run, not only a line in the step summary.
 3. **Update**: the plan is applied one directory at a time with
    `zerodep update --no-deps <names...>`. Naming the modules and skipping
    dependency expansion means even a CLI that predates `newer-than-upstream`
    cannot pull a protected dependency down.
 4. **Verify**: `zerodep status --json` runs again. The step fails when a
-   target is not `up-to-date` or when any locked version decreased. Modules
-   that were `missing` are exempt, because a reinstall records the upstream
-   version.
+   target is not `up-to-date`, when any target still reports `missing_deps`
+   (an update that added a dependency would otherwise copy the module without
+   it and stay green forever), or when any locked version decreased. Modules
+   that were `missing` are exempt from the downgrade check, because a reinstall
+   records the upstream version; when that reinstall changes the version, the
+   step summary records the old and new values.
 5. **PR**: `peter-evans/create-pull-request` commits when at least one module
    is updatable and opens (or updates) a PR with the `dependencies` and
    `zerodep` labels. The step summary lists every skipped module and every
@@ -85,8 +96,9 @@ previous run is still open, `create-pull-request` updates the same PR
 ## Deploying to a project
 
 1. Add `[tool.zerodep] vendor-dir` to `pyproject.toml` (see above).
-   **This is required** — without it, `zerodep status` scans CWD and
-   will silently report nothing installed.
+   **This is required** — the guard fails the run when the section is absent,
+   because `zerodep status` would otherwise scan CWD and silently report
+   nothing installed.
 2. Copy `templates/workflows/zerodep-update.yml` to `.github/workflows/` and
    `templates/scripts/zerodep_guard.py` to `.github/scripts/`. If the vendor
    tree is not at the repository root, replace `.` in the Inspect step with
