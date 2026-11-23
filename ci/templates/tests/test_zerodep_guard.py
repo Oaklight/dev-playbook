@@ -189,3 +189,26 @@ def test_emit_warnings_annotates_every_group(capsys):
     assert "a: locked 0.3.1 is newer than upstream 0.3.0" in err
     assert "b: cannot compare locked dev with upstream 1.0.0" in err
     assert "c: conflict; needs a human decision" in err
+
+
+def _run_inspect(tmp_path, monkeypatch, rows):
+    monkeypatch.setattr(guard, "run_status", lambda directory: rows)
+    plan = tmp_path / "plan.json"
+    summary = tmp_path / "summary.md"
+    guard.inspect(str(plan), str(summary), ["."])
+    return plan, summary
+
+
+def test_inspect_annotates_manual_rows(tmp_path, monkeypatch, capsys):
+    _run_inspect(tmp_path, monkeypatch, [_row("a", "conflict")])
+    captured = capsys.readouterr()
+    assert "::warning::a: conflict; needs a human decision" in captured.err
+    assert "blocked=true" in captured.out
+
+
+def test_inspect_keeps_warnings_out_of_stdout(tmp_path, monkeypatch, capsys):
+    _run_inspect(tmp_path, monkeypatch, [_row("a", "conflict")])
+    captured = capsys.readouterr()
+    assert "::warning::" not in captured.out
+    assert captured.out.startswith("has_updates=false\nblocked=true\nmodules<<EOF\n")
+    assert captured.out.rstrip().endswith("EOF")
