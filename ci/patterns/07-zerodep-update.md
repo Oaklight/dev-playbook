@@ -19,8 +19,8 @@ installs an older CLI.
 - `zerodep` CLI ≥ 2026.10.23.1 (for `zerodep.lock.json` and `status --json`)
 - `[tool.zerodep]` section in `pyproject.toml` declaring `vendor-dir`
 - `zerodep.lock.json` in the vendor directory (written by `zerodep add`).
-  This is required for updates: without it every module is reported
-  `unverified`, and the workflow only warns.
+  This is required for updates: without it every module that differs from
+  upstream is reported `unverified`, and the workflow only warns.
 
 The guard script in this pattern also protects runs that install an older
 CLI which predates `newer-than-upstream`: it compares the locked and upstream
@@ -105,8 +105,8 @@ previous run is still open, `create-pull-request` updates the same PR
    **This is required** — the guard fails the run when the section is absent,
    because `zerodep status` would otherwise scan CWD and silently report
    nothing installed. The vendor directory must also contain
-   `zerodep.lock.json` (`zerodep add` writes it); without it every module is
-   `unverified` and the guard only warns.
+   `zerodep.lock.json` (`zerodep add` writes it); without it every module that
+   differs from upstream is `unverified` and the guard only warns.
 2. Copy `templates/workflows/zerodep-update.yml` to `.github/workflows/` and
    `templates/scripts/zerodep_guard.py` to `.github/scripts/`. If the vendor
    tree is not at the repository root, replace `.` in the Inspect step with
@@ -117,9 +117,9 @@ previous run is still open, `create-pull-request` updates the same PR
 ### Repositories without a lock
 
 A run only updates modules that have a lock baseline. Without
-`zerodep.lock.json`, every module is `unverified`; the guard emits a warning
-and the update, verify and PR steps are skipped. Do not deploy this workflow
-to a lockless tree and expect updates.
+`zerodep.lock.json`, every module that differs from upstream is `unverified`;
+the guard emits a warning and the update, verify and PR steps are skipped. Do
+not deploy this workflow to a lockless tree and expect updates.
 
 Bootstrap the lock first, on a branch:
 
@@ -128,14 +128,21 @@ zerodep add <module> --no-deps --force   # copy upstream and write the lock
 zerodep status --json                    # must report "lock": true
 ```
 
-`--force` also replaces a vendored copy that differs from upstream, so review
-the diff and run the repository's tests before merging. Then copy the
-workflow.
+`--no-deps` copies only the named module; add its dependencies explicitly, or
+omit the flag to let the CLI resolve them. `--force` also replaces a vendored
+copy that differs from upstream, so review the diff and run the repository's
+tests before merging. If the tree was vendored with `--nested`, pass that flag
+too so the copy keeps its layout.
 
-A partially locked tree (one inspected directory with a lock, another
-without) must either commit a lock for every directory or drop the unlocked
-directory from the `inspect` arguments. Otherwise that directory warns on
-every run and never updates.
+`-d` names the vendor directory itself, not the project root. In a multi-tree
+repo, `cd` into the package directory (the one with `pyproject.toml`) before
+running `add`; `-d <project-root>` writes into the root and leaves no lock.
+
+Only zerodep module names need a lock; foreign files in the vendor directory
+are ignored. A partially locked tree (one inspected directory with a lock,
+another without) must either commit a lock for every directory or drop the
+unlocked directory from the `inspect` arguments. Otherwise that directory
+warns on every run and never updates.
 
 No per-workflow customization is needed — the CLI reads the vendor
 directory from `pyproject.toml`.
