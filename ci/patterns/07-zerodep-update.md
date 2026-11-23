@@ -54,7 +54,8 @@ and the guard script at
 
 1. **Schedule**: runs weekly (Monday 03:17 UTC) and on manual `workflow_dispatch`.
    A `concurrency` group serializes runs, so a scheduled run and a manual
-   dispatch cannot race on the `zerodep-update` branch.
+   dispatch cannot race on the `zerodep-update` branch. The job has a
+   20-minute timeout, so a hung CLI cannot hold the group for hours.
 2. **Inspect**: `zerodep status --json` runs for each vendored tree. The guard
    first requires a `[tool.zerodep] vendor-dir`; a tree without it fails the
    run instead of reporting "all up to date" for an empty directory. It fails
@@ -115,6 +116,11 @@ previous run is still open, `create-pull-request` updates the same PR
 
 No per-workflow customization is needed — the CLI reads the vendor
 directory from `pyproject.toml`.
+
+The guard's unit tests live in [`templates/tests/`](../templates/tests/) and
+are not copied into consumer repositories. Each consumer keeps one copy of the
+script, which must stay byte-identical to the template; review compares the
+file hash instead of duplicating the test suite in every repo.
 
 ### CI checks on the auto-PR
 
