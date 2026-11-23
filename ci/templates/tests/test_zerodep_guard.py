@@ -139,3 +139,25 @@ def test_require_vendor_config_accepts_section(tmp_path):
         "[tool.zerodep]\nvendor-dir = '_vendor'\n", encoding="utf-8"
     )
     guard.require_vendor_config(str(tmp_path))
+
+
+def test_parse_status_accepts_expected_shape():
+    payload = json.dumps({"modules": [_row("a", "up-to-date", "1.0.0", "1.0.0")]})
+    rows = guard.parse_status(".", payload)
+    assert rows[0]["name"] == "a"
+
+
+def test_parse_status_rejects_renamed_top_level_key():
+    with pytest.raises(SystemExit, match="modules"):
+        guard.parse_status(".", json.dumps({"module": []}))
+
+
+def test_parse_status_rejects_missing_row_key():
+    row = {"name": "a", "state": "up-to-date", "installed_version": "1.0.0"}
+    with pytest.raises(SystemExit, match="latest_version"):
+        guard.parse_status(".", json.dumps({"modules": [row]}))
+
+
+def test_parse_status_rejects_non_json():
+    with pytest.raises(SystemExit, match="Expecting value"):
+        guard.parse_status(".", "not json")
