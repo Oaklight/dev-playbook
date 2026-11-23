@@ -85,7 +85,7 @@ def run_status(directory):
         print(result.stderr.rstrip(), file=sys.stderr)
     if result.returncode != 0:
         raise SystemExit(
-            "zerodep status failed in {} (rc={})".format(directory, result.returncode)
+            f"zerodep status failed in {directory} (rc={result.returncode})"
         )
     return json.loads(result.stdout)["modules"]
 
@@ -141,120 +141,126 @@ def describe(row):
     locked = row.get("installed_version") or "\u2014"
     latest = row.get("latest_version") or "\u2014"
     if row.get("state") == "missing":
-        return "- {}: missing -> {} (reinstall)".format(row["name"], latest)
+        return f"- {row['name']}: missing -> {latest} (reinstall)"
     if compare_versions(row.get("installed_version"), row.get("latest_version")) == 0:
         return (
-            "- {}: content differs at version {} "
+            f"- {row['name']}: content differs at version {latest} "
             "(hash changed, version unchanged)"
-        ).format(row["name"], latest)
-    return "- {}: {} -> {} (`{}`)".format(
-        row["name"], locked, latest, row.get("state")
-    )
+        )
+    return f"- {row['name']}: {locked} -> {latest} (`{row.get('state')}`)"
+
+
+def append_sections(lines, groups):
+    """Append one directory's groups to the Markdown summary."""
+    if groups["updatable"]:
+        lines.append("**Updatable**")
+        lines.extend(describe(row) for row in groups["updatable"])
+        lines.append("")
+    if groups["newer"]:
+        lines.append("**Skipped: locked version is newer than upstream**")
+        for row in groups["newer"]:
+            locked = row.get("installed_version") or "\u2014"
+            latest = row.get("latest_version") or "\u2014"
+            lines.append(
+                f"- {row['name']}: locked {locked} > upstream {latest} "
+                "\u2014 not downgraded. Keep the current source with "
+                "`zerodep --ref <commit> update`, or accept the older release "
+                f"with `zerodep update {row['name']} --force`."
+            )
+        lines.append("")
+    if groups["unknown"]:
+        lines.append("**Skipped: versions cannot be compared**")
+        for row in groups["unknown"]:
+            locked = row.get("installed_version") or "\u2014"
+            latest = row.get("latest_version") or "\u2014"
+            lines.append(
+                f"- {row['name']}: locked {locked} vs upstream {latest} "
+                "\u2014 not replaced automatically"
+            )
+        lines.append("")
+    if groups["expected"]:
+        lines.append("**Expected local patches**")
+        lines.extend(
+            f"- {row['name']}: `locally-modified`" for row in groups["expected"]
+        )
+        lines.append("")
+    if groups["manual"]:
+        lines.append("**Needs a human decision**")
+        lines.extend(
+            f"- {row['name']}: `{row.get('state')}`" for row in groups["manual"]
+        )
+        lines.append("")
+
+
+def emit_warnings(newer, unknown):
+    """Write one GitHub annotation per protected module."""
+    for row in newer:
+        locked = row.get("installed_version") or "\u2014"
+        latest = row.get("latest_version") or "\u2014"
+        print(
+            f"::warning::{row['name']}: locked {locked} is newer than "
+            f"upstream {latest}; not downgraded",
+            file=sys.stderr,
+        )
+    for row in unknown:
+        locked = row.get("installed_version") or "\u2014"
+        latest = row.get("latest_version") or "\u2014"
+        print(
+            f"::warning::{row['name']}: cannot compare locked {locked} with "
+            f"upstream {latest}; skipped",
+            file=sys.stderr,
+        )
 
 
 def inspect(plan_path, summary_path, directories):
     """Classify every directory, write the plan, and publish outputs."""
-    plan = {
-        "dirs": {},
-        "newer": [],
-        "unknown": [],
-        "expected": [],
-        "manual": [],
-        "updatable": [],
-    }
+    dirs = {}
+    newer = []
+    unknown = []
+    expected = []
+    manual = []
+    updatable = []
     lines = ["### zerodep update check", ""]
-    has_updates = False
     found_any = False
 
     for directory in directories:
         rows = run_status(directory)
         groups = classify(rows)
-        if any(groups.values()):
-            found_any = True
-        names = [row["name"] for row in groups["updatable"]]
-        plan["dirs"][directory] = {"before": rows, "updatable": names}
-        for key in ("newer", "unknown", "expected", "manual", "updatable"):
-            for row in groups[key]:
-                plan[key].append(dict(row, dir=directory))
-
+        found_any = found_any or any(groups.values())
+        dirs[directory] = {
+            "before": rows,
+            "updatable": [row["name"] for row in groups["updatable"]],
+        }
         if len(directories) > 1:
-            lines.append("#### `{}`".format(directory))
-            lines.append("")
+            lines.extend((f"#### `{directory}`", ""))
+        append_sections(lines, groups)
+        for group, collected in (
+            (groups["newer"], newer),
+            (groups["unknown"], unknown),
+            (groups["expected"], expected),
+            (groups["manual"], manual),
+            (groups["updatable"], updatable),
+        ):
+            collected.extend(dict(row, dir=directory) for row in group)
 
-        if groups["updatable"]:
-            has_updates = True
-            lines.append("**Updatable**")
-            lines.extend(describe(row) for row in groups["updatable"])
-            lines.append("")
-        if groups["newer"]:
-            lines.append("**Skipped: locked version is newer than upstream**")
-            for row in groups["newer"]:
-                lines.append(
-                    "- {}: locked {} > upstream {} \u2014 not downgraded. Keep the "
-                    "current source with `zerodep --ref <commit> update`, or "
-                    "accept the older release with "
-                    "`zerodep update {} --force`.".format(
-                        row["name"],
-                        row.get("installed_version") or "\u2014",
-                        row.get("latest_version") or "\u2014",
-                        row["name"],
-                    )
-                )
-            lines.append("")
-        if groups["unknown"]:
-            lines.append("**Skipped: versions cannot be compared**")
-            for row in groups["unknown"]:
-                lines.append(
-                    "- {}: locked {} vs upstream {} \u2014 not replaced "
-                    "automatically".format(
-                        row["name"],
-                        row.get("installed_version") or "\u2014",
-                        row.get("latest_version") or "\u2014",
-                    )
-                )
-            lines.append("")
-        if groups["expected"]:
-            lines.append("**Expected local patches**")
-            for row in groups["expected"]:
-                lines.append("- {}: `locally-modified`".format(row["name"]))
-            lines.append("")
-        if groups["manual"]:
-            lines.append("**Needs a human decision**")
-            for row in groups["manual"]:
-                lines.append("- {}: `{}`".format(row["name"], row.get("state")))
-            lines.append("")
-
+    plan = {
+        "dirs": dirs,
+        "newer": newer,
+        "unknown": unknown,
+        "expected": expected,
+        "manual": manual,
+        "updatable": updatable,
+    }
     if not found_any:
-        lines.append("All installed modules are up to date.")
-        lines.append("")
-
-    for row in plan["newer"]:
-        print(
-            "::warning::{}: locked {} is newer than upstream {}; not "
-            "downgraded".format(
-                row["name"],
-                row.get("installed_version") or "\u2014",
-                row.get("latest_version") or "\u2014",
-            ),
-            file=sys.stderr,
-        )
-    for row in plan["unknown"]:
-        print(
-            "::warning::{}: cannot compare locked {} with upstream {}; "
-            "skipped".format(
-                row["name"],
-                row.get("installed_version") or "\u2014",
-                row.get("latest_version") or "\u2014",
-            ),
-            file=sys.stderr,
-        )
+        lines.extend(("All installed modules are up to date.", ""))
+    emit_warnings(newer, unknown)
 
     Path(plan_path).write_text(json.dumps(plan), encoding="utf-8")
     with open(summary_path, "a", encoding="utf-8") as summary:
         summary.write("\n".join(lines) + "\n")
 
-    print("has_updates={}".format("true" if has_updates else "false"))
-    print("blocked={}".format("true" if plan["manual"] else "false"))
+    print(f"has_updates={'true' if updatable else 'false'}")
+    print(f"blocked={'true' if manual else 'false'}")
     print("modules<<EOF")
     print("\n".join(lines))
     print("EOF")
@@ -268,13 +274,11 @@ def update(plan_path):
         if not names:
             continue
         command = ["zerodep", "update", "--no-deps"] + names
-        print("== {}: {}".format(directory, " ".join(command)), flush=True)
+        print(f"== {directory}: {' '.join(command)}", flush=True)
         result = subprocess.run(command, cwd=directory)
         if result.returncode != 0:
             raise SystemExit(
-                "zerodep update failed in {} (rc={})".format(
-                    directory, result.returncode
-                )
+                f"zerodep update failed in {directory} (rc={result.returncode})"
             )
 
 
@@ -297,7 +301,7 @@ def verify(plan_path, summary_path):
             if name in EXPECTED_LOCAL:
                 acceptable.add("locally-modified")
             if state not in acceptable:
-                problems.append("{}: {} is {}".format(directory, name, state))
+                problems.append(f"{directory}: {name} is {state}")
             checked += 1
         for row in entry["before"]:
             if row["name"] in restored:
@@ -309,19 +313,16 @@ def verify(plan_path, summary_path):
             new_key = version_key(new.get("installed_version"))
             if old_key is not None and new_key is not None and new_key < old_key:
                 problems.append(
-                    "{}: {} went from {} to {}".format(
-                        directory,
-                        row["name"],
-                        row.get("installed_version"),
-                        new.get("installed_version"),
-                    )
+                    f"{directory}: {row['name']} went from "
+                    f"{row.get('installed_version')} to "
+                    f"{new.get('installed_version')}"
                 )
     if problems:
         raise SystemExit("zerodep guard failed:\n  " + "\n  ".join(problems))
     with open(summary_path, "a", encoding="utf-8") as summary:
         summary.write(
-            "\nUpdate verified: {} module(s) up to date; no locked version "
-            "decreased.\n".format(checked)
+            f"\nUpdate verified: {checked} module(s) up to date; no locked "
+            "version decreased.\n"
         )
 
 
