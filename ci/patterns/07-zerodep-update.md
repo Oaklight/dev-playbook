@@ -19,8 +19,8 @@ installs an older CLI.
 - `zerodep` CLI ≥ 2026.10.23.1 (for `zerodep.lock.json` and `status --json`)
 - `[tool.zerodep]` section in `pyproject.toml` declaring `vendor-dir`
 - `zerodep.lock.json` in the vendor directory (written by `zerodep add`).
-  Without it every module is reported `unverified`, so the workflow warns and
-  updates nothing.
+  This is required for updates: without it every module is reported
+  `unverified`, and the workflow only warns.
 
 The guard script in this pattern also protects runs that install an older
 CLI which predates `newer-than-upstream`: it compares the locked and upstream
@@ -104,7 +104,7 @@ previous run is still open, `create-pull-request` updates the same PR
 1. Add `[tool.zerodep] vendor-dir` to `pyproject.toml` (see above).
    **This is required** — the guard fails the run when the section is absent,
    because `zerodep status` would otherwise scan CWD and silently report
-   nothing installed. The vendor directory should also contain
+   nothing installed. The vendor directory must also contain
    `zerodep.lock.json` (`zerodep add` writes it); without it every module is
    `unverified` and the guard only warns.
 2. Copy `templates/workflows/zerodep-update.yml` to `.github/workflows/` and
@@ -113,6 +113,29 @@ previous run is still open, `create-pull-request` updates the same PR
    that directory (or list several directories).
 3. Ensure the repo has `dependencies` and `zerodep` labels (see
    [repo-setup](../../repo-setup/) for the label taxonomy).
+
+### Repositories without a lock
+
+A run only updates modules that have a lock baseline. Without
+`zerodep.lock.json`, every module is `unverified`; the guard emits a warning
+and the update, verify and PR steps are skipped. Do not deploy this workflow
+to a lockless tree and expect updates.
+
+Bootstrap the lock first, on a branch:
+
+```bash
+zerodep add <module> --no-deps --force   # copy upstream and write the lock
+zerodep status --json                    # must report "lock": true
+```
+
+`--force` also replaces a vendored copy that differs from upstream, so review
+the diff and run the repository's tests before merging. Then copy the
+workflow.
+
+A partially locked tree (one inspected directory with a lock, another
+without) must either commit a lock for every directory or drop the unlocked
+directory from the `inspect` arguments. Otherwise that directory warns on
+every run and never updates.
 
 No per-workflow customization is needed — the CLI reads the vendor
 directory from `pyproject.toml`.
