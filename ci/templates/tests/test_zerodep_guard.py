@@ -175,3 +175,17 @@ def test_parse_status_rejects_missing_row_key():
 def test_parse_status_rejects_non_json():
     with pytest.raises(SystemExit, match="Expecting value"):
         guard.parse_status(".", "not json")
+
+
+def test_emit_warnings_annotates_every_group(capsys):
+    rows = [
+        _row("a", "outdated", "0.3.1", "0.3.0"),
+        _row("b", "version-uncomparable", "dev", "1.0.0"),
+        _row("c", "conflict", "1.0.0", "1.0.0"),
+    ]
+    groups = guard.classify(rows)
+    guard.emit_warnings(groups["newer"], groups["unknown"], groups["manual"])
+    err = capsys.readouterr().err
+    assert "a: locked 0.3.1 is newer than upstream 0.3.0" in err
+    assert "b: cannot compare locked dev with upstream 1.0.0" in err
+    assert "c: conflict; needs a human decision" in err
