@@ -17,12 +17,25 @@ Usage:
     zerodep_guard.py inspect PLAN SUMMARY OUTPUT_DIR...
     zerodep_guard.py update PLAN
     zerodep_guard.py verify PLAN SUMMARY
+
+Set ``ZERODEP_EXPECTED_LOCAL`` to a space-separated list of modules that are
+patched after each update.  Those modules are excluded from the manual list
+and are allowed to end as ``locally-modified``.
 """
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+EXPECTED_LOCAL = set(os.environ.get("ZERODEP_EXPECTED_LOCAL", "").split())
+MANUAL_STATES = {
+    "locally-modified",
+    "conflict",
+    "unverified",
+    "upstream-removed",
+}
 
 
 def version_key(value):
@@ -84,6 +97,7 @@ def classify(rows):
         "same_version": [],
         "newer": [],
         "unknown": [],
+        "expected": [],
         "manual": [],
     }
     for row in rows:
@@ -112,6 +126,12 @@ def classify(rows):
                 if compared == 0:
                     groups["same_version"].append(row)
             continue
+        if state in MANUAL_STATES:
+            if state == "locally-modified" and row["name"] in EXPECTED_LOCAL:
+                groups["expected"].append(row)
+            else:
+                groups["manual"].append(row)
+            continue
         groups["manual"].append(row)
     return groups
 
@@ -138,6 +158,7 @@ def inspect(plan_path, summary_path, directories):
         "dirs": {},
         "newer": [],
         "unknown": [],
+        "expected": [],
         "manual": [],
         "updatable": [],
     }
@@ -152,7 +173,7 @@ def inspect(plan_path, summary_path, directories):
             found_any = True
         names = [row["name"] for row in groups["updatable"]]
         plan["dirs"][directory] = {"before": rows, "updatable": names}
-        for key in ("newer", "unknown", "manual", "updatable"):
+        for key in ("newer", "unknown", "expected", "manual", "updatable"):
             for row in groups[key]:
                 plan[key].append(dict(row, dir=directory))
 
@@ -192,6 +213,11 @@ def inspect(plan_path, summary_path, directories):
                     )
                 )
             lines.append("")
+        if groups["expected"]:
+            lines.append("**Expected local patches**")
+            for row in groups["expected"]:
+                lines.append("- {}: `locally-modified`".format(row["name"]))
+            lines.append("")
         if groups["manual"]:
             lines.append("**Needs a human decision**")
             for row in groups["manual"]:
@@ -228,6 +254,7 @@ def inspect(plan_path, summary_path, directories):
         summary.write("\n".join(lines) + "\n")
 
     print("has_updates={}".format("true" if has_updates else "false"))
+    print("blocked={}".format("true" if plan["manual"] else "false"))
     print("modules<<EOF")
     print("\n".join(lines))
     print("EOF")
@@ -266,7 +293,10 @@ def verify(plan_path, summary_path):
         for name in entry["updatable"]:
             row = after.get(name)
             state = row.get("state") if row else "absent"
-            if state != "up-to-date":
+            acceptable = {"up-to-date"}
+            if name in EXPECTED_LOCAL:
+                acceptable.add("locally-modified")
+            if state not in acceptable:
                 problems.append("{}: {} is {}".format(directory, name, state))
             checked += 1
         for row in entry["before"]:
