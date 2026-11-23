@@ -18,6 +18,9 @@ installs an older CLI.
 
 - `zerodep` CLI ≥ 2026.10.23.1 (for `zerodep.lock.json` and `status --json`)
 - `[tool.zerodep]` section in `pyproject.toml` declaring `vendor-dir`
+- `zerodep.lock.json` in the vendor directory (written by `zerodep add`).
+  Without it every module is reported `unverified`, so the workflow warns and
+  updates nothing.
 
 The guard script in this pattern also protects runs that install an older
 CLI which predates `newer-than-upstream`: it compares the locked and upstream
@@ -54,8 +57,10 @@ and the guard script at
    dispatch cannot race on the `zerodep-update` branch.
 2. **Inspect**: `zerodep status --json` runs for each vendored tree. The guard
    first requires a `[tool.zerodep] vendor-dir`; a tree without it fails the
-   run instead of reporting "all up to date" for an empty directory. It then
-   classifies every row:
+   run instead of reporting "all up to date" for an empty directory. It fails
+   when the response has no modules, so a stale path cannot go green, and it
+   warns when the tree has no `zerodep.lock.json` (those modules are reported
+   as unverified and cannot be updated). It then classifies every row:
    - `outdated` / `missing` with a comparable, not-newer version → update
    - `newer-than-upstream`, or an `outdated` row whose locked version is
      higher → skipped, with the locked and upstream versions in the summary
@@ -98,7 +103,9 @@ previous run is still open, `create-pull-request` updates the same PR
 1. Add `[tool.zerodep] vendor-dir` to `pyproject.toml` (see above).
    **This is required** — the guard fails the run when the section is absent,
    because `zerodep status` would otherwise scan CWD and silently report
-   nothing installed.
+   nothing installed. The vendor directory should also contain
+   `zerodep.lock.json` (`zerodep add` writes it); without it every module is
+   `unverified` and the guard only warns.
 2. Copy `templates/workflows/zerodep-update.yml` to `.github/workflows/` and
    `templates/scripts/zerodep_guard.py` to `.github/scripts/`. If the vendor
    tree is not at the repository root, replace `.` in the Inspect step with

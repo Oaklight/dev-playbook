@@ -142,9 +142,23 @@ def test_require_vendor_config_accepts_section(tmp_path):
 
 
 def test_parse_status_accepts_expected_shape():
-    payload = json.dumps({"modules": [_row("a", "up-to-date", "1.0.0", "1.0.0")]})
+    payload = json.dumps(
+        {"lock": True, "modules": [_row("a", "up-to-date", "1.0.0", "1.0.0")]}
+    )
     rows = guard.parse_status(".", payload)
     assert rows[0]["name"] == "a"
+
+
+def test_parse_status_warns_without_lock(capsys):
+    payload = json.dumps({"lock": False, "modules": [_row("a", "up-to-date")]})
+    rows = guard.parse_status(".", payload)
+    assert rows[0]["name"] == "a"
+    assert "no lock file" in capsys.readouterr().err
+
+
+def test_parse_status_rejects_empty_modules():
+    with pytest.raises(SystemExit, match="found no modules"):
+        guard.parse_status(".", json.dumps({"lock": True, "modules": []}))
 
 
 def test_parse_status_rejects_renamed_top_level_key():
@@ -155,7 +169,7 @@ def test_parse_status_rejects_renamed_top_level_key():
 def test_parse_status_rejects_missing_row_key():
     row = {"name": "a", "state": "up-to-date", "installed_version": "1.0.0"}
     with pytest.raises(SystemExit, match="latest_version"):
-        guard.parse_status(".", json.dumps({"modules": [row]}))
+        guard.parse_status(".", json.dumps({"lock": True, "modules": [row]}))
 
 
 def test_parse_status_rejects_non_json():
